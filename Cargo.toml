@@ -1,0 +1,29 @@
+[package]
+name = "paper-experiments-2k23"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies.tokio]
+version = "1.32.0"
+features = ["rt", "rt-multi-thread", "macros", "net"]
+
+[package.metadata.vcpkg]
+dependencies = ["llvm", "ffmpeg[x264,vpx]"]
+git = "https://github.com/microsoft/vcpkg"
+branch = "master"
+
+[dependencies.remotia]
+# git = "https://github.com/remotia/remotia"
+# branch = "generic_data"
+path = "../remotia"
+default-features = false
+features = ["buffers", "capture", "profilation", "transmission", "render", "serialization"]
+
+[dependencies]
+async-trait = "0.1.68"
+clap = { version = "4.3.2", features = ["derive"] }
+log = "0.4.18"
+env_logger = "0.10.0"
+remotia-ffmpeg-codecs = { path = "../remotia-ffmpeg-codecs" }
+remotia-srt = { path = "../remotia-srt" }
+

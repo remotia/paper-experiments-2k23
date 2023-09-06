@@ -18,7 +18,7 @@ use remotia_srt::{
     sender::SRTFrameSender,
     srt_tokio::{options::ByteCount, SrtSocket},
 };
-use screen_stream::types::{BufferType::*, FrameData, Stat::*};
+use paper_experiments_2k23::types::{BufferType::*, FrameData, Stat::*};
 
 use remotia::register;
 

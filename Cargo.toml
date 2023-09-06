@@ -8,9 +8,9 @@ version = "1.32.0"
 features = ["rt", "rt-multi-thread", "macros", "net"]
 
 [package.metadata.vcpkg]
-dependencies = ["llvm", "ffmpeg[x264,vpx]"]
+dependencies = ["ffmpeg[x264,vpx]"]
 git = "https://github.com/microsoft/vcpkg"
-branch = "master"
+rev = "5962fd3"
 
 [dependencies.remotia]
 # git = "https://github.com/remotia/remotia"
@@ -26,4 +26,5 @@ log = "0.4.18"
 env_logger = "0.10.0"
 remotia-ffmpeg-codecs = { path = "../remotia-ffmpeg-codecs" }
 remotia-srt = { path = "../remotia-srt" }
+bincode = "2.0.0-rc.3"
 

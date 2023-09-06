@@ -1,12 +1,12 @@
 use std::time::Duration;
 
 use clap::Parser;
+use remotia::capture::y4m::Y4MFrameCapturer;
 use remotia::profilation::loggers::console::ConsoleAverageStatsLogger;
 use remotia::profilation::time::diff::TimestampDiffCalculator;
 use remotia::serialization::bincode::BincodeSerializer;
 use remotia::{
     buffers::pool_registry::PoolRegistry,
-    capture::scrap::ScrapFrameCapturer,
     pipeline::{component::Component, registry::PipelineRegistry, Pipeline},
     processors::{error_switch::OnErrorSwitch, functional::Function, ticker::Ticker},
     profilation::time::add::TimestampAdder,
@@ -24,6 +24,9 @@ use remotia::register;
 
 #[derive(Parser, Debug)]
 struct Args {
+    #[arg(short, long)]
+    file_path: String,
+
     #[arg(short, long, default_value_t = 60)]
     framerate: u64,
 
@@ -34,10 +37,10 @@ struct Args {
     codec_id: String,
 
     #[arg(long)]
-    stream_width: Option<u32>,
+    width: u32,
 
     #[arg(long)]
-    stream_height: Option<u32>,
+    height: u32,
 
     #[arg(id = "codec-option", long)]
     codec_options: Vec<String>,
@@ -54,24 +57,18 @@ const POOLS_SIZE: usize = 1;
 #[tokio::main]
 async fn main() {
     env_logger::init();
-    log::info!("Hello World!");
 
     let args = Args::parse();
 
-    let capturer = ScrapFrameCapturer::new_from_primary(CapturedRGBAFrameBuffer);
+    let capturer = Y4MFrameCapturer::new(YUVFrameBuffer, &args.file_path);
 
-    log::info!("Streaming at {}x{}", capturer.width(), capturer.height());
-
-    let width = capturer.width() as u32;
-    let height = capturer.height() as u32;
-
-    let stream_width = args.stream_width.unwrap_or(width);
-    let stream_height = args.stream_height.unwrap_or(height);
+    let width = args.width;
+    let height = args.height;
 
     let mut pools = PoolRegistry::new();
     let pixels_count = (width * height) as usize;
     pools
-        .register(CapturedRGBAFrameBuffer, POOLS_SIZE, pixels_count * 4)
+        .register(YUVFrameBuffer, POOLS_SIZE, pixels_count * 4)
         .await;
     pools
         .register(EncodedFrameBuffer, POOLS_SIZE, pixels_count * 4)
@@ -89,15 +86,15 @@ async fn main() {
     }
     let (encoder_pusher, encoder_puller) = EncoderBuilder::new()
         .codec_id(&args.codec_id)
-        .rgba_buffer_key(CapturedRGBAFrameBuffer)
+        .rgba_buffer_key(YUVFrameBuffer)
         .encoded_buffer_key(EncodedFrameBuffer)
         .scaler(
             ScalerBuilder::new()
                 .input_width(width as i32)
                 .input_height(height as i32)
-                .output_width(stream_width as i32)
-                .output_height(stream_height as i32)
-                .input_pixel_format(ffi::AVPixelFormat_AV_PIX_FMT_RGBA)
+                .output_width(width as i32)
+                .output_height(height as i32)
+                .input_pixel_format(ffi::AVPixelFormat_AV_PIX_FMT_YUV420P)
                 .output_pixel_format(ffi::AVPixelFormat_AV_PIX_FMT_YUV420P)
                 .build(),
         )
@@ -115,7 +112,7 @@ async fn main() {
                     log::warn!("Dropped frame");
                     Some(fd)
                 }))
-                .append(pools.get(CapturedRGBAFrameBuffer).redeemer().soft())
+                .append(pools.get(YUVFrameBuffer).redeemer().soft())
                 .append(pools.get(EncodedFrameBuffer).redeemer().soft()),
         )
         .feedable()
@@ -136,7 +133,7 @@ async fn main() {
             .link(
                 Component::new()
                     .append(Ticker::new(1000 / args.framerate))
-                    .append(pools.get(CapturedRGBAFrameBuffer).borrower())
+                    .append(pools.get(YUVFrameBuffer).borrower())
                     .append(TimestampAdder::new(CaptureTime))
                     .append(capturer)
                     .append(TimestampAdder::new(EncodePushTime))
@@ -144,7 +141,7 @@ async fn main() {
             )
             .link(
                 Component::new()
-                    .append(pools.get(CapturedRGBAFrameBuffer).redeemer())
+                    .append(pools.get(YUVFrameBuffer).redeemer())
                     .append(pools.get(EncodedFrameBuffer).borrower())
                     .append(encoder_puller)
                     .append(TimestampDiffCalculator::new(EncodePushTime, EncodeTime))

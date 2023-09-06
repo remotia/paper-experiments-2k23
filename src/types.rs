@@ -16,7 +16,7 @@ use remotia::{
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Encode, Decode)]
 pub enum BufferType {
-    CapturedRGBAFrameBuffer,
+    YUVFrameBuffer,
     EncodedFrameBuffer,
     SerializedFrameData,
 

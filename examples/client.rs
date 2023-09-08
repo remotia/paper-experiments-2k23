@@ -70,7 +70,7 @@ async fn main() {
                 .input_width(args.width as i32)
                 .input_height(args.height as i32)
                 .input_pixel_format(ffi::AVPixelFormat_AV_PIX_FMT_YUV420P)
-                .output_pixel_format(ffi::AVPixelFormat_AV_PIX_FMT_BGRA)
+                .output_pixel_format(ffi::AVPixelFormat_AV_PIX_FMT_RGBA)
                 .build(),
         )
         .drain_error(NoFrame)

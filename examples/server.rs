@@ -1,6 +1,7 @@
 use std::time::Duration;
 
 use clap::Parser;
+use paper_experiments_2k23::types::{BufferType::*, FrameData, Stat::*};
 use remotia::capture::y4m::Y4MFrameCapturer;
 use remotia::profilation::loggers::console::ConsoleAverageStatsLogger;
 use remotia::profilation::time::diff::TimestampDiffCalculator;
@@ -11,6 +12,7 @@ use remotia::{
     processors::{error_switch::OnErrorSwitch, functional::Function, ticker::Ticker},
     profilation::time::add::TimestampAdder,
 };
+use remotia_ffmpeg_codecs::encoders::fillers::yuv420p::YUV420PFrameFiller;
 use remotia_ffmpeg_codecs::{
     encoders::EncoderBuilder, ffi, options::Options, scaling::ScalerBuilder,
 };
@@ -18,13 +20,12 @@ use remotia_srt::{
     sender::SRTFrameSender,
     srt_tokio::{options::ByteCount, SrtSocket},
 };
-use paper_experiments_2k23::types::{BufferType::*, FrameData, Stat::*};
 
 use remotia::register;
 
 #[derive(Parser, Debug)]
 struct Args {
-    #[arg(short, long)]
+    #[arg(long)]
     file_path: String,
 
     #[arg(short, long, default_value_t = 60)]
@@ -60,8 +61,6 @@ async fn main() {
 
     let args = Args::parse();
 
-    let capturer = Y4MFrameCapturer::new(YUVFrameBuffer, &args.file_path);
-
     let width = args.width;
     let height = args.height;
 
@@ -86,7 +85,7 @@ async fn main() {
     }
     let (encoder_pusher, encoder_puller) = EncoderBuilder::new()
         .codec_id(&args.codec_id)
-        .rgba_buffer_key(YUVFrameBuffer)
+        .filler(YUV420PFrameFiller::new(YUVFrameBuffer))
         .encoded_buffer_key(EncodedFrameBuffer)
         .scaler(
             ScalerBuilder::new()
@@ -95,6 +94,7 @@ async fn main() {
                 .output_width(width as i32)
                 .output_height(height as i32)
                 .input_pixel_format(ffi::AVPixelFormat_AV_PIX_FMT_YUV420P)
+                // .input_pixel_format(ffi::AVPixelFormat_AV_PIX_FMT_RGBA)
                 .output_pixel_format(ffi::AVPixelFormat_AV_PIX_FMT_YUV420P)
                 .build(),
         )
@@ -135,7 +135,7 @@ async fn main() {
                     .append(Ticker::new(1000 / args.framerate))
                     .append(pools.get(YUVFrameBuffer).borrower())
                     .append(TimestampAdder::new(CaptureTime))
-                    .append(capturer)
+                    .append(Y4MFrameCapturer::new(YUVFrameBuffer, &args.file_path))
                     .append(TimestampAdder::new(EncodePushTime))
                     .append(encoder_pusher),
             )
